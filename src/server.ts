@@ -5,6 +5,7 @@ import { errorMessage, warudoError } from "./errors.js";
 import { WarudoRestClient, type HttpMethod } from "./warudo/rest-client.js";
 import { WarudoWebSocketClient } from "./warudo/websocket-client.js";
 import {
+  decodePortValue,
   describePorts,
   findEntity,
   flattenTypes,
@@ -198,7 +199,10 @@ export function buildServer({ config, ws, rest, types: cache }: Clients): McpSer
       return [
         `${g.name} [${g.id}] ${g.enabled ? "enabled" : "disabled"}`,
         `Nodes (${nodes.length}):`,
-        ...nodes.map((n) => `  - ${n.name} (${titles.get(n.typeId) ?? n.typeId}) [${n.id}] at ${n.x},${n.y}`),
+        ...nodes.map((n) => {
+          const type = titles.get(n.typeId) ?? n.typeId;
+          return `  - ${n.name}${type === n.name ? "" : ` (${type})`} [${n.id}] at ${n.x},${n.y}`;
+        }),
         `Flow (${g.flowConnections.length}):`,
         ...g.flowConnections.map((c) => `  ${name(c.outputNode)}.${c.outputPort} -> ${name(c.inputNode)}.${c.inputPort}`),
         `Data (${g.dataConnections.length}):`,
@@ -301,7 +305,8 @@ export function buildServer({ config, ws, rest, types: cache }: Clients): McpSer
       maxLength: z.number().optional().describe("Truncate the reply text. Default 20000."),
     },
     guarded("warudo_request", async ({ action, data, waitFor, maxLength }) =>
-      formatValue(await ws.request(action, data ?? null, { waitFor, timeoutMs: 20000 }), maxLength ?? 20000)
+      // Export replies carry JSON as a string; decode so it reads as JSON.
+      formatValue(decodePortValue(await ws.request(action, data ?? null, { waitFor, timeoutMs: 20000 })), maxLength ?? 20000)
     )
   );
 
