@@ -57,6 +57,16 @@ export function buildServer({ config, ws, rest, types: cache }: Clients): McpSer
   const getNodeTypes = async () => (cache.node ??= flattenTypes(await ws.request("getNodeTypeList", null, { timeoutMs: 20000 })));
 
   server.tool(
+    "ping",
+    "Check that this server can open the Warudo editor WebSocket.",
+    {},
+    guarded("ping", async () => {
+      await ws.ensureConnected();
+      return `pong: Warudo WebSocket ${ws.getState()} at ${config.warudoWsUrl}`;
+    })
+  );
+
+  server.tool(
     "check_connection",
     "Check that Warudo's REST API (19052) and editor WebSocket (19053) accept this server, and report the Warudo version.",
     {},
@@ -88,6 +98,16 @@ export function buildServer({ config, ws, rest, types: cache }: Clients): McpSer
         `Saved scenes (${sceneList.length}):`,
         ...sceneList.map((s) => `  - ${s.name}`),
       ].join("\n");
+    })
+  );
+
+  server.tool(
+    "list_scenes",
+    "List saved Warudo scenes.",
+    {},
+    guarded("list_scenes", async () => {
+      const scenes = ((await rest.get("/scenes")) as { name: string }[]) ?? [];
+      return scenes.length ? [`Scenes (${scenes.length}):`, ...scenes.map((s) => `  - ${s.name}`)].join("\n") : "No scenes.";
     })
   );
 
